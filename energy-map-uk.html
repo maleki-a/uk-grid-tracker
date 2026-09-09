@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UK & North Sea Grid Generation, Transmission & Curtailment Network</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --accent: #38bdf8;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --border: #334155;
+            --live-red: #ef4444;
+            --curtail-red: #f43f5e;
+            /* Dynamic scale factor for sidebar content UI size */
+            --ui-scale: 1.0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #map {
+            flex: 1;
+            height: 100%;
+            background: #090d16;
+        }
+
+        /* Sidebar Controls */
+        #sidebar {
+            width: calc(440px * var(--ui-scale));
+            min-width: 280px;
+            max-width: 500px;
+            background-color: var(--panel-bg);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.4);
+            transition: width 0.15s ease;
+        }
+
+        .header {
+            padding: calc(16px * var(--ui-scale));
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title-box h1 {
+            font-size: calc(1.1rem * var(--ui-scale));
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 2px;
+        }
+
+        .header-title-box p {
+            font-size: calc(0.75rem * var(--ui-scale));
+            color: var(--text-sub);
+        }
+
+        /* Control Panel Zoom Buttons (+ / -) */
+        .ui-scale-controls {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            background: var(--bg-color);
+            border: 1px solid var(--border);
+            padding: 2px 4px;
+            border-radius: 6px;
+        }
+
+        .scale-btn {
+            background: none;
+            border: none;
+            color: var(--accent);
+            font-size: 0.85rem;
+            font-weight: 700;
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background 0.15s;
+        }
+
+        .scale-btn:hover {
+            background: rgba(56, 189, 248, 0.15);
+        }
+
+        .scale-indicator {
+            font-size: 0.65rem;
+            color: var(--text-sub);
+            font-family: monospace;
+            padding: 0 2px;
+        }
+
+        .content {
+            padding: calc(14px * var(--ui-scale));
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: calc(12px * var(--ui-scale));
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: calc(8px * var(--ui-scale));
+            padding: calc(12px * var(--ui-scale));
+        }
+
+        /* Time Range Selector */
+        .range-toggle-group {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+            margin-bottom: calc(8px * var(--ui-scale));
+        }
+
+        .range-btn {
+            background: var(--bg-color);
+            color: var(--text-sub);
+            border: 1px solid var(--border);
+            padding: calc(5px * var(--ui-scale)) 0;
+            font-size: calc(0.65rem * var(--ui-scale));
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .range-btn.active {
+            background: var(--accent);
+            color: #0f172a;
+            border-color: var(--accent);
+        }
+
+        .range-btn.live-btn.active {
+            background: var(--live-red);
+            color: #ffffff;
+            border-color: var(--live-red);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: calc(8px * var(--ui-scale));
+        }
+
+        .time-display .label {
+            font-size: calc(0.7rem * var(--ui-scale));
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-sub);
+        }
+
+        .time-display .val {
+            font-size: calc(1.1rem * var(--ui-scale));
+            font-weight: 700;
+            font-family: monospace;
+            color: var(--accent);
+        }
+
+        .timeline-slider {
+            width: 100%;
+            accent-color: var(--accent);
+            cursor: pointer;
+            margin-bottom: calc(8px * var(--ui-scale));
+        }
+
+        .timeline-slider:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        button.action-btn {
+            background: var(--accent);
+            color: #0f172a;
+            border: none;
+            padding: calc(6px * var(--ui-scale)) calc(12px * var(--ui-scale));
+            border-radius: 6px;
+            font-size: calc(0.75rem * var(--ui-scale));
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        button.action-btn:disabled {
+            background: var(--border);
+            color: var(--text-sub);
+            cursor: not-allowed;
+        }
+
+        .speed-select {
+            background: var(--bg-color);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: calc(6px * var(--ui-scale));
+            border-radius: 6px;
+            outline: none;
+            cursor: pointer;
+            flex: 1;
+            font-size: calc(0.75rem * var(--ui-scale));
+        }
+
+        /* Toggle Switch UI */
+        .toggle-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: calc(4px * var(--ui-scale)) 0;
+        }
+
+        .toggle-label {
+            font-size: calc(0.78rem * var(--ui-scale));
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pct-badge {
+            font-size: calc(0.7rem * var(--ui-scale));
+            font-weight: 700;
+            color: var(--accent);
+            background: rgba(56, 189, 248, 0.1);
+            padding: 1px 5px;
+            border-radius: 4px;
+            margin-left: 2px;
+            font-family: monospace;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: calc(34px * var(--ui-scale));
+            height: calc(18px * var(--ui-scale));
+        }
+
+        .switch input { opacity: 0; width: 0; height: 0; }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border);
+            transition: .3s;
+            border-radius: 20px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: calc(12px * var(--ui-scale)); 
+            width: calc(12px * var(--ui-scale));
+            left: 2px; bottom: 2px;
+            background-color: var(--text-sub);
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before {
+            transform: translateX(calc(16px * var(--ui-scale)));
+            background-color: #0f172a;
+        }
+
+        /* Summary Stats */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: calc(8px * var(--ui-scale));
+        }
+
+        .stat-box {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid var(--border);
+            padding: calc(8px * var(--ui-scale));
+            border-radius: 6px;
+        }
+
+        .stat-box .title {
+            font-size: calc(0.68rem * var(--ui-scale));
+            color: var(--text-sub);
+        }
+
+        .stat-box .number {
+            font-size: calc(0.95rem * var(--ui-scale));
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        .legend-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: calc(6px * var(--ui-scale));
+        }
+
+        .legend-title {
+            font-size: calc(0.75rem * var(--ui-scale));
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .quick-filter-links {
+            display: flex;
+            gap: 6px;
+        }
+
+        .quick-filter-links button {
+            background: none;
+            border: none;
+            color: var(--accent);
+            font-size: calc(0.65rem * var(--ui-scale));
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .legend-grid-toggles {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .color-dot {
+            width: calc(8px * var(--ui-scale));
+            height: calc(8px * var(--ui-scale));
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .curtail-demo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: calc(8px * var(--ui-scale));
+            padding: calc(6px * var(--ui-scale));
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: calc(0.68rem * var(--ui-scale));
+            color: var(--text-sub);
+        }
+
+        .curtail-circle-icon {
+            width: calc(20px * var(--ui-scale));
+            height: calc(20px * var(--ui-scale));
+            border-radius: 50%;
+            border: 1.5px solid var(--border);
+            background: rgba(16, 185, 129, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .curtail-inner-demo {
+            width: calc(10px * var(--ui-scale));
+            height: calc(10px * var(--ui-scale));
+            border-radius: 50%;
+            background: #f43f5e;
+            border: 1px solid #ffffff;
+        }
+
+        /* Transparent Labels */
+        .station-label {
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: #ffffff !important;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 0;
+            white-space: nowrap;
+            text-shadow: 
+                -1px -1px 2px #000,  
+                 1px -1px 2px #000,
+                -1px  1px 2px #000,
+                 1px  1px 2px #000,
+                 0px  0px 4px #000;
+        }
+
+        .hide-labels .station-label { display: none !important; }
+        .leaflet-container { background: #090d16 !important; }
+        .leaflet-popup-content-wrapper {
+            background: var(--panel-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .leaflet-popup-tip { background: var(--panel-bg); }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div id="sidebar">
+        <div class="header">
+            <div class="header-title-box">
+                <h1>UK Grid Tracker</h1>
+                <p>Generation & Curtailment</p>
+            </div>
+            <!-- Panel UI Resizing Controls -->
+            <div class="ui-scale-controls" title="Adjust sidebar size to fit your screen">
+                <button class="scale-btn" id="zoomOutUiBtn" title="Shrink Panel UI">-</button>
+                <span class="scale-indicator" id="scaleValueText">100%</span>
+                <button class="scale-btn" id="zoomInUiBtn" title="Enlarge Panel UI">+</button>
+                <button class="scale-btn" id="resetUiBtn" style="font-size: 0.7rem;" title="Reset Size">↺</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="card">
+                <div class="legend-title">Timeframe / Data Mode</div>
+                <div class="range-toggle-group">
+                    <button class="range-btn active" data-range="24h">24h</button>
+                    <button class="range-btn" data-range="7d">7d</button>
+                    <button class="range-btn" data-range="30d">1m</button>
+                    <button class="range-btn" data-range="1y">1y</button>
+                    <button class="range-btn live-btn" data-range="live">🔴 Live</button>
+                </div>
+
+                <div class="time-display">
+                    <span class="label" id="stepLabel">Interval</span>
+                    <span id="timeLabel" class="val">00:00</span>
+                </div>
+                
+                <input type="range" id="timeSlider" class="timeline-slider" min="0" max="47" value="0" step="1">
+
+                <div class="controls-row">
+                    <button id="playBtn" class="action-btn">
+                        <span id="playIcon">▶</span> <span id="playText">Play</span>
+                    </button>
+                    
+                    <select id="speedSelect" class="speed-select">
+                        <option value="1000">Speed: 0.5x</option>
+                        <option value="400" selected>Speed: 1x</option>
+                        <option value="200">Speed: 2x</option>
+                        <option value="80">Speed: 5x</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="toggle-container">
+                    <span class="toggle-label">Station Labels</span>
+                    <label class="switch">
+                        <input type="checkbox" id="labelToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-container" style="border-top: 1px solid rgba(51, 65, 85, 0.5); margin-top: 2px; padding-top: 4px;">
+                    <span class="toggle-label">Transmission Grid Lines</span>
+                    <label class="switch">
+                        <input type="checkbox" id="gridLinesToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="legend-header-row">
+                    <div class="legend-title">Energy Source Toggles</div>
+                    <div class="quick-filter-links">
+                        <button id="selectAllBtn">All</button>
+                        <button id="deselectAllBtn">None</button>
+                    </div>
+                </div>
+
+                <div class="legend-grid-toggles" id="sourceTogglesContainer">
+                    <!-- Dynamic Source Switches -->
+                </div>
+
+                <div class="curtail-demo">
+                    <div class="curtail-circle-icon"><div class="curtail-inner-demo"></div></div>
+                    <div>
+                        <strong>Curtailment Visual:</strong><br>
+                        Outer = Output | Inner = Curtailed
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="legend-title">Grid Summary (Filtered)</div>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <div class="title">Active Output</div>
+                        <div id="totalGen" class="number">0 MW</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="title">Curtailed Power</div>
+                        <div id="totalCurtailed" class="number" style="color: var(--curtail-red);">0 MW</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="title">Wind Curtail Rate</div>
+                        <div id="windCurtailRate" class="number" style="color: #f43f5e;">0.0%</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="title">Grid Spill Rate</div>
+                        <div id="curtailRate" class="number" style="color: var(--accent);">0.0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // Panel UI Scaling Logic
+        let currentUiScale = 0.85; // Set compact start size default
+
+        function updateUiScale(newScale) {
+            currentUiScale = Math.min(1.25, Math.max(0.55, newScale));
+            document.documentElement.style.setProperty('--ui-scale', currentUiScale);
+            document.getElementById('scaleValueText').innerText = Math.round(currentUiScale * 100) + '%';
+        }
+
+        document.getElementById('zoomInUiBtn').addEventListener('click', () => updateUiScale(currentUiScale + 0.05));
+        document.getElementById('zoomOutUiBtn').addEventListener('click', () => updateUiScale(currentUiScale - 0.05));
+        document.getElementById('resetUiBtn').addEventListener('click', () => updateUiScale(0.85));
+
+        // Initial default scale update
+        updateUiScale(0.85);
+
+        const FUEL_COLORS = {
+            Wind: '#10b981',
+            Battery: '#06b6d4',
+            Gas: '#f97316',
+            Nuclear: '#64748b',
+            Solar: '#facc15',
+            Biomass: '#84cc16',
+            Hydro: '#3b82f6',
+            Interconnector: '#a855f7'
+        };
+
+        const activeFuelTypes = {
+            Wind: true,
+            Battery: true,
+            Gas: true,
+            Nuclear: true,
+            Solar: true,
+            Biomass: true,
+            Hydro: true,
+            Interconnector: true
+        };
+
+        const fuelPercentages = {
+            Wind: 0, Battery: 0, Gas: 0, Nuclear: 0,
+            Solar: 0, Biomass: 0, Hydro: 0, Interconnector: 0
+        };
+
+        const powerStations = [
+            { id: 1, name: "Dogger Bank Offshore Wind", short: "Dogger Bank", type: "Wind", lat: 54.75, lng: 2.50, maxCap: 3600 },
+            { id: 2, name: "Hornsea 1 & 2 Offshore Wind", short: "Hornsea", type: "Wind", lat: 53.90, lng: 1.80, maxCap: 2600 },
+            { id: 3, name: "Seagreen Wind Farm", short: "Seagreen", type: "Wind", lat: 56.58, lng: -1.60, maxCap: 1100 },
+            { id: 4, name: "Walney Extension", short: "Walney", type: "Wind", lat: 54.04, lng: -3.52, maxCap: 660 },
+            { id: 5, name: "London Array Offshore", short: "London Array", type: "Wind", lat: 51.63, lng: 1.50, maxCap: 630 },
+            { id: 6, name: "Moray East Wind", short: "Moray East", type: "Wind", lat: 58.18, lng: -2.70, maxCap: 950 },
+            { id: 7, name: "Whitelee Onshore Wind", short: "Whitelee", type: "Wind", lat: 55.68, lng: -4.26, maxCap: 539 },
+            { id: 8, name: "Beatrice Offshore Wind", short: "Beatrice", type: "Wind", lat: 58.11, lng: -3.08, maxCap: 588 },
+            { id: 9, name: "Triton Knoll Offshore", short: "Triton Knoll", type: "Wind", lat: 53.48, lng: 0.83, maxCap: 857 },
+            { id: 10, name: "East Anglia ONE", short: "East Anglia 1", type: "Wind", lat: 52.23, lng: 2.28, maxCap: 714 },
+            { id: 11, name: "Pillswood BESS", short: "Pillswood", type: "Battery", lat: 53.77, lng: -0.36, maxCap: 198 },
+            { id: 12, name: "Minety Battery Facility", short: "Minety", type: "Battery", lat: 51.61, lng: -1.98, maxCap: 100 },
+            { id: 13, name: "Thurrock BESS Park", short: "Thurrock", type: "Battery", lat: 51.47, lng: 0.38, maxCap: 600 },
+            { id: 14, name: "Richborough BESS", short: "Richborough", type: "Battery", lat: 51.31, lng: 1.34, maxCap: 100 },
+            { id: 15, name: "Pembroke CCGT Power Station", short: "Pembroke", type: "Gas", lat: 51.68, lng: -4.95, maxCap: 2200 },
+            { id: 16, name: "Keadby 1 & 2 Power Station", short: "Keadby", type: "Gas", lat: 53.59, lng: -0.74, maxCap: 2200 },
+            { id: 17, name: "West Burton B CCGT", short: "W. Burton B", type: "Gas", lat: 53.36, lng: -0.81, maxCap: 1300 },
+            { id: 18, name: "Carrington Power Station", short: "Carrington", type: "Gas", lat: 53.43, lng: -2.40, maxCap: 880 },
+            { id: 19, name: "Staythorpe CCGT", short: "Staythorpe", type: "Gas", lat: 53.07, lng: -0.85, maxCap: 1650 },
+            { id: 20, name: "Marchwood Power Station", short: "Marchwood", type: "Gas", lat: 50.89, lng: -1.43, maxCap: 840 },
+            { id: 21, name: "Sizewell B Nuclear", short: "Sizewell B", type: "Nuclear", lat: 52.21, lng: 1.62, maxCap: 1200 },
+            { id: 22, name: "Torness Nuclear", short: "Torness", type: "Nuclear", lat: 55.97, lng: -2.40, maxCap: 1200 },
+            { id: 23, name: "Heysham 1 & 2 Nuclear", short: "Heysham", type: "Nuclear", lat: 54.03, lng: -2.91, maxCap: 2400 },
+            { id: 24, name: "Hinkley Point B/C", short: "Hinkley Point", type: "Nuclear", lat: 51.21, lng: -3.13, maxCap: 3200 },
+            { id: 25, name: "Drax Biomass Power Station", short: "Drax", type: "Biomass", lat: 53.73, lng: -1.00, maxCap: 2600 },
+            { id: 26, name: "Lynemouth Biomass", short: "Lynemouth", type: "Biomass", lat: 55.21, lng: -1.52, maxCap: 420 },
+            { id: 27, name: "Dinorwig Pumped Storage", short: "Dinorwig", type: "Hydro", lat: 53.12, lng: -4.11, maxCap: 1700 },
+            { id: 28, name: "Cruachan Hydro Storage", short: "Cruachan", type: "Hydro", lat: 56.40, lng: -5.11, maxCap: 440 },
+            { id: 29, name: "Ffestiniog Hydro Station", short: "Ffestiniog", type: "Hydro", lat: 52.98, lng: -3.96, maxCap: 360 },
+            { id: 30, name: "Cambridgeshire Solar Park", short: "Cambs Solar", type: "Solar", lat: 52.20, lng: 0.12, maxCap: 500 },
+            { id: 31, name: "Llanwern Solar Array", short: "Llanwern", type: "Solar", lat: 51.57, lng: -2.91, maxCap: 75 },
+            { id: 32, name: "Cleve Hill Solar Park", short: "Cleve Hill", type: "Solar", lat: 51.34, lng: 0.92, maxCap: 350 },
+            { id: 33, name: "North Sea Link (Norway)", short: "NSL (NO)", type: "Interconnector", lat: 55.15, lng: -1.50, maxCap: 1400 },
+            { id: 34, name: "IFA2 Interconnector (France)", short: "IFA2 (FR)", type: "Interconnector", lat: 50.80, lng: -1.18, maxCap: 1000 },
+            { id: 35, name: "Viking Link (Denmark)", short: "Viking (DK)", type: "Interconnector", lat: 53.30, lng: 0.20, maxCap: 1400 },
+            { id: 36, name: "Moyle Interconnector (NI)", short: "Moyle (NI)", type: "Interconnector", lat: 54.85, lng: -5.02, maxCap: 500 }
+        ];
+
+        function renderSourceToggles() {
+            const container = document.getElementById('sourceTogglesContainer');
+            container.innerHTML = '';
+
+            Object.keys(FUEL_COLORS).forEach(type => {
+                const row = document.createElement('div');
+                row.className = 'toggle-container';
+
+                const pct = fuelPercentages[type] ? fuelPercentages[type].toFixed(1) : "0.0";
+
+                row.innerHTML = `
+                    <span class="toggle-label">
+                        <div class="color-dot" style="background: ${FUEL_COLORS[type]}"></div>
+                        ${type}
+                        <span class="pct-badge" id="pct-${type}">${pct}%</span>
+                    </span>
+                    <label class="switch">
+                        <input type="checkbox" class="fuel-toggle-switch" data-fuel="${type}" ${activeFuelTypes[type] ? 'checked' : ''}>
+                        <span class="slider"></span>
+                    </label>
+                `;
+
+                container.appendChild(row);
+            });
+
+            document.querySelectorAll('.fuel-toggle-switch').forEach(sw => {
+                sw.addEventListener('change', (e) => {
+                    const fuel = e.target.dataset.fuel;
+                    activeFuelTypes[fuel] = e.target.checked;
+                    updateDisplay();
+                });
+            });
+        }
+
+        function updateTogglePercentages() {
+            Object.keys(FUEL_COLORS).forEach(type => {
+                const badge = document.getElementById(`pct-${type}`);
+                if (badge) {
+                    const val = fuelPercentages[type] ? fuelPercentages[type].toFixed(1) : "0.0";
+                    badge.innerText = `${val}%`;
+                }
+            });
+        }
+
+        document.getElementById('selectAllBtn').addEventListener('click', () => {
+            Object.keys(activeFuelTypes).forEach(k => activeFuelTypes[k] = true);
+            renderSourceToggles();
+            updateDisplay();
+        });
+
+        document.getElementById('deselectAllBtn').addEventListener('click', () => {
+            Object.keys(activeFuelTypes).forEach(k => activeFuelTypes[k] = false);
+            renderSourceToggles();
+            updateDisplay();
+        });
+
+        function generateProfiles(timeframe) {
+            let steps = 48;
+            if (timeframe === '7d') steps = 56;
+            if (timeframe === '30d') steps = 60;
+            if (timeframe === '1y') steps = 52;
+
+            const dataset = {};
+            const curtailmentDataset = {};
+
+            powerStations.forEach(s => {
+                const arr = [];
+                const curtailArr = [];
+                for (let i = 0; i < steps; i++) {
+                    let factor = 0.5;
+                    let cFactor = 0.0;
+                    const norm = i / steps;
+
+                    if (s.type === 'Solar') {
+                        if (timeframe === '24h') {
+                            const hour = i / 2;
+                            factor = Math.max(0, Math.sin((hour - 6) / 12 * Math.PI));
+                        } else {
+                            factor = 0.3 + 0.5 * Math.random();
+                        }
+                        if (factor > 0.4) cFactor = factor * (0.15 + 0.3 * Math.random());
+                    } else if (s.type === 'Wind') {
+                        factor = 0.25 + 0.65 * Math.abs(Math.sin(norm * Math.PI * 6 + s.id));
+                        if (factor > 0.5) cFactor = factor * (0.2 + 0.4 * Math.random());
+                    } else if (s.type === 'Gas') {
+                        factor = (i % 6 === 0) ? 0.85 : 0.3;
+                    } else if (s.type === 'Battery') {
+                        factor = (i % 4 === 0) ? 0.9 : 0.1;
+                    } else {
+                        factor = 0.7 + 0.2 * Math.sin(i * 0.1);
+                    }
+
+                    arr.push(Math.min(1, Math.max(0.05, factor)));
+                    curtailArr.push(Math.min(factor, Math.max(0, cFactor)));
+                }
+                dataset[s.id] = arr;
+                curtailmentDataset[s.id] = curtailArr;
+            });
+
+            return { steps, dataset, curtailmentDataset };
+        }
+
+        const timeframeConfigs = {
+            '24h': { 
+                label: "Time (30m steps)", 
+                getLabel: (i) => {
+                    const hrs = Math.floor(i / 2);
+                    const mins = (i % 2) * 30;
+                    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+                }, 
+                ...generateProfiles('24h') 
+            },
+            '7d': { 
+                label: "Time (3h steps)", 
+                getLabel: (i) => `Day ${Math.floor(i / 8) + 1} ${((i % 8) * 3)}:00`, 
+                ...generateProfiles('7d') 
+            },
+            '30d': { 
+                label: "Time (12h steps)", 
+                getLabel: (i) => `Day ${Math.floor(i / 2) + 1} ${(i % 2 === 0) ? "AM" : "PM"}`, 
+                ...generateProfiles('30d') 
+            },
+            '1y': { 
+                label: "Time (1 Wk steps)", 
+                getLabel: (i) => `Week ${i + 1}`, 
+                ...generateProfiles('1y') 
+            }
+        };
+
+        let activeTimeframe = '24h';
+        const liveDataStore = {};
+        const liveCurtailStore = {};
+        const stationStateMap = {};
+        let livePollingTimer = null;
+
+        function populateSimulatedLiveValues() {
+            powerStations.forEach(s => {
+                let factor = 0.4;
+                let cFactor = 0.0;
+
+                if (s.type === 'Wind') {
+                    factor = 0.6 + 0.35 * Math.random();
+                    cFactor = factor * (0.2 + 0.3 * Math.random());
+                } else if (s.type === 'Solar') {
+                    factor = 0.4 + 0.4 * Math.random();
+                    cFactor = factor * (0.15 + 0.25 * Math.random());
+                } else if (s.type === 'Gas') {
+                    factor = 0.45 + 0.3 * Math.random();
+                } else if (s.type === 'Nuclear') {
+                    factor = 0.90;
+                } else {
+                    factor = 0.5;
+                }
+
+                liveDataStore[s.id] = Math.round(s.maxCap * factor);
+                liveCurtailStore[s.id] = Math.round(s.maxCap * cFactor);
+            });
+        }
+        populateSimulatedLiveValues();
+
+        const gridConnections = [
+            { name: "Dogger Bank HVDC Link", from: [54.75, 2.50], to: [53.59, -0.74], type: "HVDC" },
+            { name: "Hornsea HVDC Link", from: [53.90, 1.80], to: [53.59, -0.74], type: "HVDC" },
+            { name: "Seagreen Export Cable", from: [56.58, -1.60], to: [55.97, -2.40], type: "HVAC" },
+            { name: "Moray Firth Line", from: [58.18, -2.70], to: [56.40, -5.11], type: "HVAC" },
+            { name: "Scotland-England 400kV Line", from: [55.97, -2.40], to: [54.03, -2.91], type: "HVAC" },
+            { name: "Pennine Grid Trunk", from: [54.03, -2.91], to: [53.43, -2.40], type: "HVAC" },
+            { name: "Midlands Main Grid", from: [53.36, -0.81], to: [51.61, -1.98], type: "HVAC" },
+            { name: "Wales 400kV Backbone", from: [53.12, -4.11], to: [51.68, -4.95], type: "HVAC" },
+            { name: "North Sea Link (Norway HVDC)", from: [55.15, -1.50], to: [56.50, 3.50], type: "HVDC" },
+            { name: "IFA2 (France HVDC Cable)", from: [50.80, -1.18], to: [49.80, -0.50], type: "HVDC" }
+        ];
+
+		// Initialized map with custom zoom step options
+//		const map = L.map('map', { 
+//			zoomControl: false,
+//			zoomSnap: 0.25,  // Forces zoom level to snap in increments of 0.25 instead of 1.0
+//			zoomDelta: 0.25  // Controls how much each click of + / - changes the zoom level
+//		}).setView([54.3, -2.2], 6);
+
+        const map = L.map('map', { zoomControl: false, zoomSnap: 0.25, zoomDelta: 0.25 }).setView([54.3, -2.2], 6);
+        L.control.zoom({ position: 'topleft' }).addTo(map);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 18,
+            opacity: 0.35
+        }).addTo(map);
+
+        const gridPolylines = [];
+        gridConnections.forEach(conn => {
+            const line = L.polyline([conn.from, conn.to], {
+                color: conn.type === 'HVDC' ? '#a855f7' : '#38bdf8',
+                weight: conn.type === 'HVDC' ? 2 : 3,
+                dashArray: conn.type === 'HVDC' ? '6, 6' : null,
+                opacity: 0.6
+            }).addTo(map);
+            gridPolylines.push(line);
+        });
+
+        const stationOuterMarkers = {};
+        const stationInnerMarkers = {};
+        let currentTimeStep = 0;
+        let isPlaying = false;
+        let playInterval = null;
+
+        function getRadius(mw) {
+            if (mw <= 0) return 0;
+            return Math.sqrt(mw) * 0.52 + 3.5;
+        }
+
+        powerStations.forEach(station => {
+            stationStateMap[station.id] = { mw: 0, curtailedMW: 0 };
+
+            const outerCircle = L.circleMarker([station.lat, station.lng], {
+                radius: getRadius(0),
+                fillColor: FUEL_COLORS[station.type],
+                color: '#ffffff',
+                weight: 1.2,
+                opacity: 0.9,
+                fillOpacity: 0.85
+            }).addTo(map);
+
+            const innerCircle = L.circleMarker([station.lat, station.lng], {
+                radius: 0,
+                fillColor: '#f43f5e',
+                color: '#ffffff',
+                weight: 1,
+                opacity: 0.95,
+                fillOpacity: 0.95
+            }).addTo(map);
+
+            outerCircle.bindTooltip(`${station.short}: 0 MW`, {
+                permanent: true,
+                direction: 'right',
+                offset: [8, 0],
+                className: 'station-label'
+            });
+
+            outerCircle.on('click', () => {
+                const state = stationStateMap[station.id];
+                let curtailmentText = '';
+                if (station.type === 'Wind' || station.type === 'Solar') {
+                    const ratio = state.mw > 0 ? ((state.curtailedMW / state.mw) * 100).toFixed(1) : 0;
+                    curtailmentText = `<br><strong style="color: #f43f5e;">Curtailed Power:</strong> ${state.curtailedMW.toLocaleString()} MW (${ratio}% of output)<br>`;
+                }
+
+                outerCircle.bindPopup(`
+                    <div style="padding: 4px;">
+                        <strong style="font-size: 1rem; color: ${FUEL_COLORS[station.type]};">${station.name}</strong><br>
+                        <span style="color: #94a3b8; font-size: 0.85rem;">Type: ${station.type}</span><br><br>
+                        <strong>Active Grid Output:</strong> ${state.mw.toLocaleString()} MW${curtailmentText}
+                        <strong>Nameplate Capacity:</strong> ${station.maxCap.toLocaleString()} MW
+                    </div>
+                `).openPopup();
+            });
+
+            stationOuterMarkers[station.id] = outerCircle;
+            stationInnerMarkers[station.id] = innerCircle;
+        });
+
+        async function fetchLiveGridData() {
+            try {
+                const res = await fetch('https://api.carbonintensity.org.uk/generation', { cache: "no-store" });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                
+                const data = await res.json();
+                if (data && data.data && data.data.generationmix) {
+                    const mix = data.data.generationmix;
+                    const fuelFactors = {};
+                    
+                    mix.forEach(item => {
+                        let mappedType = null;
+                        const f = item.fuel.toLowerCase();
+                        if (f === 'wind') mappedType = 'Wind';
+                        else if (f === 'gas') mappedType = 'Gas';
+                        else if (f === 'nuclear') mappedType = 'Nuclear';
+                        else if (f === 'biomass') mappedType = 'Biomass';
+                        else if (f === 'hydro') mappedType = 'Hydro';
+                        else if (f === 'solar') mappedType = 'Solar';
+                        else if (f === 'imports') mappedType = 'Interconnector';
+                        else if (f === 'battery') mappedType = 'Battery';
+
+                        if (mappedType) {
+                            fuelFactors[mappedType] = Math.min(1, Math.max(0.1, item.perc / 35.0));
+                        }
+                    });
+
+                    powerStations.forEach(s => {
+                        const factor = fuelFactors[s.type] || (0.2 + 0.3 * Math.random());
+                        const currentMW = Math.round(s.maxCap * factor);
+                        liveDataStore[s.id] = currentMW;
+                        liveCurtailStore[s.id] = (s.type === 'Wind' || s.type === 'Solar') ? Math.round(currentMW * (0.15 + 0.2 * Math.random())) : 0;
+                    });
+                }
+            } catch (err) {
+                populateSimulatedLiveValues();
+            }
+
+            if (activeTimeframe === 'live') renderLiveMode();
+        }
+
+        function updateStationVisuals(station, currentMW, curtailedMW) {
+            const outer = stationOuterMarkers[station.id];
+            const inner = stationInnerMarkers[station.id];
+
+            if (!activeFuelTypes[station.type]) {
+                outer.setRadius(0);
+                outer.setStyle({ opacity: 0, fillOpacity: 0 });
+                inner.setRadius(0);
+                inner.setStyle({ opacity: 0, fillOpacity: 0 });
+                if (outer.getTooltip()) outer.closeTooltip();
+                return;
+            }
+
+            const outerRadius = getRadius(currentMW);
+            outer.setRadius(outerRadius);
+            outer.setStyle({ opacity: 0.9, fillOpacity: 0.85 });
+
+            if ((station.type === 'Wind' || station.type === 'Solar') && currentMW > 0 && curtailedMW > 0) {
+                const boundedCurtail = Math.min(curtailedMW, currentMW);
+                const innerRadius = outerRadius * Math.sqrt(boundedCurtail / currentMW);
+                
+                inner.setRadius(Math.max(2, innerRadius));
+                inner.setStyle({ opacity: 0.95, fillOpacity: 0.95 });
+            } else {
+                inner.setRadius(0);
+                inner.setStyle({ opacity: 0, fillOpacity: 0 });
+            }
+
+            if (outer.getTooltip()) {
+                let label = `${station.short}: ${currentMW.toLocaleString()} MW`;
+                if (curtailedMW > 0) label += ` (Spill: ${curtailedMW.toLocaleString()} MW)`;
+                outer.getTooltip().setContent(label);
+            }
+        }
+
+        function calculateGridTotals(getCurrentMW, getCurtailedMW) {
+            let totalPower = 0;
+            let totalCurtailed = 0;
+            let activeCount = 0;
+            let windGenMW = 0;
+            let windCurtailMW = 0;
+
+            const fuelTotals = {
+                Wind: 0, Battery: 0, Gas: 0, Nuclear: 0,
+                Solar: 0, Biomass: 0, Hydro: 0, Interconnector: 0
+            };
+
+            powerStations.forEach(station => {
+                const currentMW = getCurrentMW(station);
+                const curtailedMW = getCurtailedMW(station);
+
+                stationStateMap[station.id] = { mw: currentMW, curtailedMW };
+
+                if (station.type === 'Wind') {
+                    windGenMW += currentMW;
+                    windCurtailMW += curtailedMW;
+                }
+
+                if (activeFuelTypes[station.type]) {
+                    fuelTotals[station.type] += currentMW;
+                    totalPower += currentMW;
+                    totalCurtailed += curtailedMW;
+                    if (currentMW > 5) activeCount++;
+                }
+
+                updateStationVisuals(station, currentMW, curtailedMW);
+            });
+
+            Object.keys(FUEL_COLORS).forEach(type => {
+                if (totalPower > 0 && activeFuelTypes[type]) {
+                    fuelPercentages[type] = (fuelTotals[type] / totalPower) * 100;
+                } else {
+                    fuelPercentages[type] = 0;
+                }
+            });
+
+            updateTogglePercentages();
+
+            document.getElementById('totalGen').innerText = totalPower.toLocaleString() + " MW";
+            document.getElementById('totalCurtailed').innerText = totalCurtailed.toLocaleString() + " MW";
+            
+            const windCurtailRate = (windGenMW + windCurtailMW > 0) 
+                ? ((windCurtailMW / (windGenMW + windCurtailMW)) * 100).toFixed(1) 
+                : "0.0";
+            document.getElementById('windCurtailRate').innerText = windCurtailRate + "%";
+
+            const spillRate = (totalPower > 0) ? ((totalCurtailed / totalPower) * 100).toFixed(1) : "0.0";
+            document.getElementById('curtailRate').innerText = spillRate + "%";
+        }
+
+        function renderLiveMode() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            calculateGridTotals(
+                s => liveDataStore[s.id] || Math.round(s.maxCap * 0.4),
+                s => liveCurtailStore[s.id] || 0
+            );
+
+            document.getElementById('stepLabel').innerText = "Live Telemetry";
+            document.getElementById('timeLabel').innerText = timeStr;
+        }
+
+        function updateDisplay() {
+            if (activeTimeframe === 'live') {
+                renderLiveMode();
+                return;
+            }
+
+            const cfg = timeframeConfigs[activeTimeframe];
+
+            calculateGridTotals(
+                s => Math.round(s.maxCap * cfg.dataset[s.id][currentTimeStep]),
+                s => Math.round(s.maxCap * cfg.dataset[s.id][currentTimeStep] * cfg.curtailmentDataset[s.id][currentTimeStep])
+            );
+
+            document.getElementById('stepLabel').innerText = cfg.label;
+            document.getElementById('timeLabel').innerText = cfg.getLabel(currentTimeStep);
+            document.getElementById('timeSlider').value = currentTimeStep;
+        }
+
+        function switchTimeframe(tf) {
+            stopPlayback();
+            activeTimeframe = tf;
+
+            const slider = document.getElementById('timeSlider');
+            const playBtn = document.getElementById('playBtn');
+            const speedSelect = document.getElementById('speedSelect');
+
+            if (tf === 'live') {
+                slider.disabled = true;
+                playBtn.disabled = true;
+                speedSelect.disabled = true;
+                
+                populateSimulatedLiveValues();
+                renderLiveMode();
+                fetchLiveGridData();
+                
+                if (!livePollingTimer) {
+                    livePollingTimer = setInterval(fetchLiveGridData, 10000);
+                }
+            } else {
+                if (livePollingTimer) {
+                    clearInterval(livePollingTimer);
+                    livePollingTimer = null;
+                }
+
+                slider.disabled = false;
+                playBtn.disabled = false;
+                speedSelect.disabled = false;
+
+                const cfg = timeframeConfigs[tf];
+                slider.max = cfg.steps - 1;
+                slider.value = 0;
+                currentTimeStep = 0;
+
+                updateDisplay();
+            }
+        }
+
+        // Toggles
+        const labelToggle = document.getElementById('labelToggle');
+        labelToggle.addEventListener('change', (e) => {
+            if (e.target.checked) document.body.classList.remove('hide-labels');
+            else document.body.classList.add('hide-labels');
+        });
+
+        const gridLinesToggle = document.getElementById('gridLinesToggle');
+        gridLinesToggle.addEventListener('change', (e) => {
+            const showLines = e.target.checked;
+            gridPolylines.forEach(line => {
+                if (showLines) {
+                    map.addLayer(line);
+                } else {
+                    map.removeLayer(line);
+                }
+            });
+        });
+
+        const playBtn = document.getElementById('playBtn');
+        const playIcon = document.getElementById('playIcon');
+        const playText = document.getElementById('playText');
+        const timeSlider = document.getElementById('timeSlider');
+        const speedSelect = document.getElementById('speedSelect');
+
+        function startPlayback() {
+            if (activeTimeframe === 'live') return;
+            isPlaying = true;
+            playIcon.innerText = "❚❚";
+            playText.innerText = "Pause";
+            const speed = parseInt(speedSelect.value);
+            const cfg = timeframeConfigs[activeTimeframe];
+            
+            playInterval = setInterval(() => {
+                currentTimeStep = (currentTimeStep + 1) % cfg.steps;
+                updateDisplay();
+            }, speed);
+        }
+
+        function stopPlayback() {
+            isPlaying = false;
+            playIcon.innerText = "▶";
+            playText.innerText = "Play";
+            if (playInterval) clearInterval(playInterval);
+        }
+
+        playBtn.addEventListener('click', () => {
+            if (isPlaying) stopPlayback();
+            else startPlayback();
+        });
+
+        timeSlider.addEventListener('input', (e) => {
+            currentTimeStep = parseInt(e.target.value);
+            updateDisplay();
+        });
+
+        speedSelect.addEventListener('change', () => {
+            if (isPlaying) {
+                stopPlayback();
+                startPlayback();
+            }
+        });
+
+        document.querySelectorAll('.range-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                switchTimeframe(e.target.dataset.range);
+            });
+        });
+
+        // Initialize UI & Render
+        renderSourceToggles();
+        updateDisplay();
+    </script>
+</body>
+</html>
