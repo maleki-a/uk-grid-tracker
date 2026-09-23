@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>UK & North Sea Grid Generation, Transmission & Curtailment Network</title>
+    <title>UK & North Sea Grid Generation, Transmission & Curtailment Network (v3)</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -289,13 +289,14 @@
         }
 
         .pct-badge {
-            font-size: calc(0.6rem * var(--ui-scale));
+            font-size: calc(0.55rem * var(--ui-scale));
             font-weight: 700;
             color: var(--accent);
             background: rgba(56, 189, 248, 0.1);
             padding: 1px 4px;
             border-radius: 4px;
             font-family: monospace;
+            white-space: nowrap;
         }
 
         .threshold-input {
@@ -539,7 +540,7 @@
     <div id="sidebar">
         <div class="header">
             <div class="header-title-box">
-                <h1>UK Grid Tracker</h1>
+                <h1>UK Grid Tracker v3</h1>
                 <p>Generation & Curtailment</p>
             </div>
             <div class="ui-scale-controls" title="Adjust sidebar size to fit your screen">
@@ -712,6 +713,11 @@
             Solar: 0, Biomass: 0, Hydro: 0, Interconnector: 0
         };
 
+        const fuelMWMap = {
+            Wind: 0, Battery: 0, Gas: 0, Nuclear: 0,
+            Solar: 0, Biomass: 0, Hydro: 0, Interconnector: 0
+        };
+
         const powerStations = [
             { id: 1, name: "Dogger Bank Offshore Wind", short: "Dogger Bank", type: "Wind", lat: 54.75, lng: 2.50, maxCap: 3600 },
             { id: 2, name: "Hornsea 1 & 2 Offshore Wind", short: "Hornsea", type: "Wind", lat: 53.90, lng: 1.80, maxCap: 2600 },
@@ -778,12 +784,13 @@
                 row.className = 'toggle-container';
 
                 const pct = fuelPercentages[type] ? fuelPercentages[type].toFixed(1) : "0.0";
+                const mwVal = fuelMWMap[type] ? Math.round(fuelMWMap[type]).toLocaleString() : "0";
                 const thresh = fuelThresholds[type] !== undefined ? fuelThresholds[type] : 0;
 
                 row.innerHTML = `
                     <div class="toggle-left">
                         <div class="color-dot" style="background: ${FUEL_COLORS[type]}"></div>
-                        <span class="toggle-label">${type} <span class="pct-badge" id="pct-${type}">${pct}%</span></span>
+                        <span class="toggle-label">${type} <span class="pct-badge" id="pct-${type}">${pct}% (${mwVal} MW)</span></span>
                     </div>
                     <div class="toggle-right">
                         <input type="number" class="threshold-input ind-threshold" data-fuel="${type}" value="${thresh}" min="0" step="50" title="Min capacity threshold in MW">
@@ -831,7 +838,8 @@
                 const badge = document.getElementById(`pct-${type}`);
                 if (badge) {
                     const val = fuelPercentages[type] ? fuelPercentages[type].toFixed(1) : "0.0";
-                    badge.innerText = `${val}%`;
+                    const mwVal = fuelMWMap[type] ? Math.round(fuelMWMap[type]).toLocaleString() : "0";
+                    badge.innerText = `${val}% (${mwVal} MW)`;
                 }
             });
         }
@@ -1204,6 +1212,7 @@
             });
 
             Object.keys(FUEL_COLORS).forEach(type => {
+                fuelMWMap[type] = fuelTotals[type];
                 if (totalPower > 0 && activeFuelTypes[type]) {
                     fuelPercentages[type] = (fuelTotals[type] / totalPower) * 100;
                 } else {
