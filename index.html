@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>UK & North Sea Grid Generation, Transmission & Curtailment Network (v4)</title>
+    <title>UK & North Sea Grid Generation, Transmission & Curtailment Network (v5)</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -29,7 +29,6 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Use 100dvh to handle mobile browser chrome resizing dynamically */
         html, body {
             background-color: var(--bg-color);
             color: var(--text-main);
@@ -56,7 +55,6 @@
             position: relative;
         }
 
-        /* Sidebar Controls */
         #sidebar {
             width: calc(440px * var(--ui-scale));
             min-width: 280px;
@@ -509,7 +507,6 @@
         }
         .leaflet-popup-tip { background: var(--panel-bg); }
 
-        /* Strict Mobile Portrait Layout Rule: Map on top, restricted panel on bottom */
         @media (max-width: 768px) and (orientation: portrait) {
             body {
                 flex-direction: column-reverse !important;
@@ -540,7 +537,7 @@
     <div id="sidebar">
         <div class="header">
             <div class="header-title-box">
-                <h1>UK Grid Tracker v4</h1>
+                <h1>UK Grid Tracker v5</h1>
                 <p>Generation & Curtailment</p>
             </div>
             <div class="ui-scale-controls" title="Adjust sidebar size to fit your screen">
@@ -618,7 +615,6 @@
                     </div>
                 </div>
 
-                <!-- Global Threshold Control Box -->
                 <div class="global-threshold-box">
                     <span class="toggle-label" style="font-size: 0.65rem;">Set All Thresholds to:</span>
                     <div style="display: flex; gap: 4px; align-items: center;">
@@ -775,6 +771,12 @@
             { id: 36, name: "Moyle Interconnector (NI)", short: "Moyle (NI)", type: "Interconnector", lat: 54.85, lng: -5.02, maxCap: 500 }
         ];
 
+        // Pre-calculate total capacities per fuel type for robust distribution bounds
+        const typeCapacities = {};
+        powerStations.forEach(s => {
+            typeCapacities[s.type] = (typeCapacities[s.type] || 0) + s.maxCap;
+        });
+
         function renderSourceToggles() {
             const container = document.getElementById('sourceTogglesContainer');
             container.innerHTML = '';
@@ -869,7 +871,7 @@
                 const arr = [];
                 const curtailArr = [];
                 for (let i = 0; i < steps; i++) {
-                    let factor = 0.6;
+                    let factor = 0.5;
                     let cFactor = 0.0;
                     const norm = i / steps;
 
@@ -878,22 +880,23 @@
                             const hour = i / 2;
                             factor = Math.max(0, Math.sin((hour - 6) / 12 * Math.PI));
                         } else {
-                            factor = 0.4 + 0.5 * Math.random();
+                            factor = 0.3 + 0.4 * Math.random();
                         }
-                        if (factor > 0.4) cFactor = factor * (0.15 + 0.3 * Math.random());
+                        if (factor > 0.3) cFactor = 0.02 + 0.08 * Math.random();
                     } else if (s.type === 'Wind') {
-                        factor = 0.35 + 0.6 * Math.abs(Math.sin(norm * Math.PI * 6 + s.id));
-                        if (factor > 0.5) cFactor = factor * (0.2 + 0.4 * Math.random());
+                        factor = 0.3 + 0.5 * Math.abs(Math.sin(norm * Math.PI * 4 + (s.id * 0.2)));
+                        if (factor > 0.45) cFactor = 0.03 + (factor * 0.1); // Dynamic curtailment
                     } else if (s.type === 'Gas') {
-                        factor = (i % 6 === 0) ? 0.9 : 0.4;
+                        factor = (i % 6 === 0) ? 0.75 : 0.4;
                     } else if (s.type === 'Battery') {
-                        factor = (i % 4 === 0) ? 0.95 : 0.2;
+                        factor = (i % 4 === 0) ? 0.8 : 0.15;
                     } else {
-                        factor = 0.75 + 0.2 * Math.sin(i * 0.1);
+                        factor = 0.7 + 0.15 * Math.sin(i * 0.1);
                     }
 
-                    arr.push(Math.min(1, Math.max(0.1, factor)));
-                    curtailArr.push(Math.min(factor, Math.max(0, cFactor)));
+                    // Strict bounds: factor must be between 0 and 1, never exceeding maxCap
+                    arr.push(Math.min(1.0, Math.max(0.05, factor)));
+                    curtailArr.push(s.type === 'Wind' || s.type === 'Solar' ? Math.min(0.2, Math.max(0, cFactor)) : 0);
                 }
                 dataset[s.id] = arr;
                 curtailmentDataset[s.id] = curtailArr;
@@ -936,28 +939,27 @@
         let livePollingTimer = null;
 
         function populateSimulatedLiveValues() {
+            const simulatedMix = {
+                Wind: 30, Gas: 35, Nuclear: 18, Biomass: 7, Hydro: 4, Solar: 3, Battery: 1, Interconnector: 2
+            };
+            const estimatedTotalGen = 30000; // Realistic UK active power baseline (MW)
+
             powerStations.forEach(s => {
-                let factor = 0.45;
-                let cFactor = 0.0;
+                const perc = simulatedMix[s.type] || 10;
+                const fuelTotalGen = estimatedTotalGen * (perc / 100);
+                const totalCapForType = typeCapacities[s.type] || s.maxCap;
 
-                if (s.type === 'Wind') {
-                    factor = 0.3 + 0.5 * Math.random();
-                    cFactor = factor * (0.02 + 0.13 * Math.random());
-                } else if (s.type === 'Solar') {
-                    factor = 0.2 + 0.6 * Math.random();
-                    cFactor = factor * (0.01 + 0.1 * Math.random());
-                } else if (s.type === 'Gas') {
-                    factor = 0.4 + 0.3 * Math.random();
-                } else if (s.type === 'Nuclear') {
-                    factor = 0.85;
-                } else if (s.type === 'Biomass') {
-                    factor = 0.7;
+                const rawGen = fuelTotalGen * (s.maxCap / totalCapForType);
+                const currentMW = Math.min(s.maxCap, Math.max(0, Math.round(rawGen)));
+                
+                liveDataStore[s.id] = currentMW;
+                
+                if (s.type === 'Wind' || s.type === 'Solar') {
+                    const curtailRatio = 0.02 + (Math.random() * 0.08); // 2% to 10% dynamic curtailment
+                    liveCurtailStore[s.id] = Math.min(currentMW, Math.round(currentMW * curtailRatio));
                 } else {
-                    factor = 0.5;
+                    liveCurtailStore[s.id] = 0;
                 }
-
-                liveDataStore[s.id] = Math.min(s.maxCap, Math.round(s.maxCap * factor));
-                liveCurtailStore[s.id] = (s.type === 'Wind' || s.type === 'Solar') ? Math.min(liveDataStore[s.id], Math.round(s.maxCap * cFactor)) : 0;
             });
         }
 
@@ -1098,7 +1100,7 @@
                 const data = await res.json();
                 if (data && data.data && data.data.generationmix) {
                     const mix = data.data.generationmix;
-                    const fuelFactors = {};
+                    const fuelPercentagesAPI = {};
                     
                     mix.forEach(item => {
                         let mappedType = null;
@@ -1113,17 +1115,29 @@
                         else if (f === 'battery') mappedType = 'Battery';
 
                         if (mappedType) {
-                            fuelFactors[mappedType] = Math.min(0.95, Math.max(0.05, item.perc / 45.0));
+                            fuelPercentagesAPI[mappedType] = item.perc; // percentage share
                         }
                     });
 
+                    const estimatedTotalGen = 30000; // UK baseline MW
+
                     powerStations.forEach(s => {
-                        const factor = fuelFactors[s.type] || 0.35;
-                        const currentMW = Math.min(s.maxCap, Math.round(s.maxCap * factor));
+                        const perc = fuelPercentagesAPI[s.type] || 10;
+                        const fuelTotalGen = estimatedTotalGen * (perc / 100);
+                        const totalCapForType = typeCapacities[s.type] || s.maxCap;
+
+                        // Proportional distribution strictly bounded by maxCap
+                        const rawGen = fuelTotalGen * (s.maxCap / totalCapForType);
+                        const currentMW = Math.min(s.maxCap, Math.max(0, Math.round(rawGen)));
+                        
                         liveDataStore[s.id] = currentMW;
                         
-                        const curtailFactor = (s.type === 'Wind' || s.type === 'Solar') ? (0.03 + Math.random() * 0.12) : 0;
-                        liveCurtailStore[s.id] = Math.round(currentMW * curtailFactor);
+                        if (s.type === 'Wind' || s.type === 'Solar') {
+                            const curtailRatio = 0.02 + (Math.random() * 0.08);
+                            liveCurtailStore[s.id] = Math.min(currentMW, Math.round(currentMW * curtailRatio));
+                        } else {
+                            liveCurtailStore[s.id] = 0;
+                        }
                     });
                 }
             } catch (err) {
@@ -1240,7 +1254,7 @@
             const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
             calculateGridTotals(
-                s => liveDataStore[s.id] || Math.round(s.maxCap * 0.55),
+                s => liveDataStore[s.id] || Math.round(s.maxCap * 0.5),
                 s => liveCurtailStore[s.id] || 0
             );
 
@@ -1257,8 +1271,8 @@
             const cfg = timeframeConfigs[activeTimeframe];
 
             calculateGridTotals(
-                s => Math.round(s.maxCap * cfg.dataset[s.id][currentTimeStep]),
-                s => Math.round(s.maxCap * cfg.dataset[s.id][currentTimeStep] * cfg.curtailmentDataset[s.id][currentTimeStep])
+                s => Math.min(s.maxCap, Math.round(s.maxCap * cfg.dataset[s.id][currentTimeStep])),
+                s => Math.min(s.maxCap, Math.round(s.maxCap * cfg.dataset[s.id][currentTimeStep] * cfg.curtailmentDataset[s.id][currentTimeStep]))
             );
 
             document.getElementById('stepLabel').innerText = cfg.label;
