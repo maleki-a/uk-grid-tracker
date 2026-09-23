@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>UK & North Sea Grid Generation, Transmission & Curtailment Network</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
-		:root {
+        :root {
             --bg-color: #0f172a;
             --panel-bg: #1e293b;
             --accent: #38bdf8;
@@ -44,7 +44,7 @@
 
         body {
             display: flex;
-            flex-direction: row; /* Default landscape / desktop layout */
+            flex-direction: row;
         }
 
         #map {
@@ -58,9 +58,9 @@
 
         /* Sidebar Controls */
         #sidebar {
-            width: calc(420px * var(--ui-scale));
-            min-width: 260px;
-            max-width: 480px;
+            width: calc(440px * var(--ui-scale));
+            min-width: 280px;
+            max-width: 500px;
             background-color: var(--panel-bg);
             border-left: 1px solid var(--border);
             display: flex;
@@ -147,7 +147,6 @@
             flex-shrink: 0;
         }
 
-        /* Time Range Selector */
         .range-toggle-group {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
@@ -259,39 +258,68 @@
             font-size: calc(0.7rem * var(--ui-scale));
         }
 
-        /* Toggle Switch UI */
         .toggle-container {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: calc(3px * var(--ui-scale)) 0;
+            padding: calc(4px * var(--ui-scale)) 0;
+            gap: 6px;
+        }
+
+        .toggle-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+        }
+
+        .toggle-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .toggle-label {
-            font-size: calc(0.72rem * var(--ui-scale));
+            font-size: calc(0.7rem * var(--ui-scale));
             font-weight: 600;
             color: var(--text-main);
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 4px;
         }
 
         .pct-badge {
-            font-size: calc(0.65rem * var(--ui-scale));
+            font-size: calc(0.6rem * var(--ui-scale));
             font-weight: 700;
             color: var(--accent);
             background: rgba(56, 189, 248, 0.1);
             padding: 1px 4px;
             border-radius: 4px;
-            margin-left: 2px;
             font-family: monospace;
+        }
+
+        .threshold-input {
+            width: calc(52px * var(--ui-scale));
+            background: var(--bg-color);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: calc(0.6rem * var(--ui-scale));
+            padding: 2px 3px;
+            text-align: right;
+            font-family: monospace;
+        }
+
+        .threshold-label {
+            font-size: calc(0.55rem * var(--ui-scale));
+            color: var(--text-sub);
         }
 
         .switch {
             position: relative;
             display: inline-block;
-            width: calc(30px * var(--ui-scale));
-            height: calc(16px * var(--ui-scale));
+            width: calc(28px * var(--ui-scale));
+            height: calc(15px * var(--ui-scale));
         }
 
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -309,8 +337,8 @@
         .slider:before {
             position: absolute;
             content: "";
-            height: calc(10px * var(--ui-scale)); 
-            width: calc(10px * var(--ui-scale));
+            height: calc(9px * var(--ui-scale)); 
+            width: calc(9px * var(--ui-scale));
             left: 2px; bottom: 2px;
             background-color: var(--text-sub);
             transition: .3s;
@@ -319,11 +347,10 @@
 
         input:checked + .slider { background-color: var(--accent); }
         input:checked + .slider:before {
-            transform: translateX(calc(14px * var(--ui-scale)));
+            transform: translateX(calc(13px * var(--ui-scale)));
             background-color: #0f172a;
         }
 
-        /* Summary Stats */
         .stat-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -338,14 +365,20 @@
         }
 
         .stat-box .title {
-            font-size: calc(0.62rem * var(--ui-scale));
+            font-size: calc(0.6rem * var(--ui-scale));
             color: var(--text-sub);
         }
 
         .stat-box .number {
-            font-size: calc(0.85rem * var(--ui-scale));
+            font-size: calc(0.8rem * var(--ui-scale));
             font-weight: 600;
             margin-top: 2px;
+        }
+
+        .stat-box .onscreen {
+            font-size: calc(0.65rem * var(--ui-scale));
+            color: var(--text-sub);
+            font-weight: normal;
         }
 
         .legend-header-row {
@@ -375,10 +408,21 @@
             text-decoration: underline;
         }
 
+        .global-threshold-box {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid var(--border);
+            padding: calc(5px * var(--ui-scale)) calc(8px * var(--ui-scale));
+            border-radius: 6px;
+            margin-bottom: calc(6px * var(--ui-scale));
+        }
+
         .legend-grid-toggles {
             display: flex;
             flex-direction: column;
-            gap: 1px;
+            gap: 2px;
         }
 
         .color-dot {
@@ -422,7 +466,6 @@
             border: 1px solid #ffffff;
         }
 
-        /* Transparent Labels */
         .station-label {
             background: none !important;
             border: none !important;
@@ -440,7 +483,22 @@
                  0px  0px 4px #000;
         }
 
+        .line-label {
+            background: rgba(15, 23, 42, 0.85) !important;
+            border: 1px solid var(--border) !important;
+            color: var(--text-sub) !important;
+            font-size: 8px !important;
+            font-weight: 600;
+            padding: 1px 3px !important;
+            border-radius: 3px;
+            box-shadow: none !important;
+            white-space: nowrap;
+        }
+        .line-label::before { display: none !important; }
+
         .hide-labels .station-label { display: none !important; }
+        .hide-line-labels .line-label { display: none !important; }
+
         .leaflet-container { background: #090d16 !important; }
         .leaflet-popup-content-wrapper {
             background: var(--panel-bg);
@@ -455,17 +513,15 @@
             body {
                 flex-direction: column-reverse !important;
             }
-
             #map {
                 width: 100% !important;
                 flex: 1 1 auto !important;
                 height: auto !important;
             }
-
             #sidebar {
                 width: 100% !important;
                 max-width: 100% !important;
-                height: 36vh !important; /* Locks sidebar to a fraction of the screen */
+                height: 36vh !important;
                 min-height: 140px;
                 max-height: 220px;
                 border-left: none !important;
@@ -486,7 +542,6 @@
                 <h1>UK Grid Tracker</h1>
                 <p>Generation & Curtailment</p>
             </div>
-            <!-- Panel UI Resizing Controls -->
             <div class="ui-scale-controls" title="Adjust sidebar size to fit your screen">
                 <button class="scale-btn" id="zoomOutUiBtn" title="Shrink Panel UI">-</button>
                 <span class="scale-indicator" id="scaleValueText">100%</span>
@@ -499,11 +554,11 @@
             <div class="card">
                 <div class="legend-title">Timeframe / Data Mode</div>
                 <div class="range-toggle-group">
-                    <button class="range-btn active" data-range="24h">24h</button>
+                    <button class="range-btn" data-range="24h">24h</button>
                     <button class="range-btn" data-range="7d">7d</button>
                     <button class="range-btn" data-range="30d">1m</button>
                     <button class="range-btn" data-range="1y">1y</button>
-                    <button class="range-btn live-btn" data-range="live">🔴 Live</button>
+                    <button class="range-btn live-btn active" data-range="live">🔴 Live</button>
                 </div>
 
                 <div class="time-display">
@@ -511,20 +566,20 @@
                     <span id="timeLabel" class="val">00:00</span>
                 </div>
                 
-                <input type="range" id="timeSlider" class="timeline-slider" min="0" max="47" value="0" step="1">
+                <input type="range" id="timeSlider" class="timeline-slider" min="0" max="47" value="0" step="1" disabled>
 
                 <div class="controls-row">
-                    <button id="playBtn" class="action-btn">
+                    <button id="playBtn" class="action-btn" disabled>
                         <span id="playIcon">▶</span> <span id="playText">Play</span>
                     </button>
                     
-                    <select id="speedSelect" class="speed-select">
+                    <select id="speedSelect" class="speed-select" disabled>
                         <option value="1000">Speed: 0.5x</option>
                         <option value="400" selected>Speed: 1x</option>
                         <option value="200">Speed: 2x</option>
-                         <option value="133">Speed: 3x</option>
-                         <option value="100">Speed: 4x</option>
-                       <option value="80">Speed: 5x</option>
+                        <option value="133">Speed: 3x</option>
+                        <option value="100">Speed: 4x</option>
+                        <option value="80">Speed: 5x</option>
                     </select>
                 </div>
             </div>
@@ -544,20 +599,35 @@
                         <span class="slider"></span>
                     </label>
                 </div>
+                <div class="toggle-container" style="border-top: 1px solid rgba(51, 65, 85, 0.5); margin-top: 2px; padding-top: 4px;">
+                    <span class="toggle-label">Transmission Line Titles</span>
+                    <label class="switch">
+                        <input type="checkbox" id="lineLabelsToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
             </div>
 
             <div class="card">
                 <div class="legend-header-row">
-                    <div class="legend-title">Energy Source Toggles</div>
+                    <div class="legend-title">Energy Sources & Min Capacity Thresholds (MW)</div>
                     <div class="quick-filter-links">
                         <button id="selectAllBtn">All</button>
                         <button id="deselectAllBtn">None</button>
                     </div>
                 </div>
 
-                <div class="legend-grid-toggles" id="sourceTogglesContainer">
-                    <!-- Dynamic Source Switches -->
+                <!-- Global Threshold Control Box -->
+                <div class="global-threshold-box">
+                    <span class="toggle-label" style="font-size: 0.65rem;">Set All Thresholds to:</span>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <input type="number" id="globalThresholdInput" class="threshold-input" value="500" min="0" step="50" style="width: 60px;" placeholder="500">
+                        <span class="threshold-label">MW</span>
+                        <button id="applyGlobalThresholdBtn" class="action-btn" style="padding: 2px 8px; font-size: 0.6rem;">Apply</button>
+                    </div>
                 </div>
+
+                <div class="legend-grid-toggles" id="sourceTogglesContainer"></div>
 
                 <div class="curtail-demo">
                     <div class="curtail-circle-icon"><div class="curtail-inner-demo"></div></div>
@@ -569,15 +639,15 @@
             </div>
 
             <div class="card">
-                <div class="legend-title">Grid Summary (Filtered)</div>
+                <div class="legend-title">Grid Summary (Total / Selected)</div>
                 <div class="stat-grid">
                     <div class="stat-box">
                         <div class="title">Active Output</div>
-                        <div id="totalGen" class="number">0 MW</div>
+                        <div id="totalGen" class="number">0 MW <span id="totalGenScreen" class="onscreen">(0 MW)</span></div>
                     </div>
                     <div class="stat-box">
                         <div class="title">Curtailed Power</div>
-                        <div id="totalCurtailed" class="number" style="color: var(--curtail-red);">0 MW</div>
+                        <div id="totalCurtailed" class="number" style="color: var(--curtail-red);">0 MW <span id="totalCurtailedScreen" class="onscreen">(0 MW)</span></div>
                     </div>
                     <div class="stat-box">
                         <div class="title">Wind Curtail Rate</div>
@@ -592,11 +662,11 @@
         </div>
     </div>
 
+    <!-- Leaflet JS Library -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        // Panel UI Scaling Logic
-        let currentUiScale = 0.85; // Set compact start size default
+        let currentUiScale = 0.85;
 
         function updateUiScale(newScale) {
             currentUiScale = Math.min(1.25, Math.max(0.55, newScale));
@@ -608,7 +678,6 @@
         document.getElementById('zoomOutUiBtn').addEventListener('click', () => updateUiScale(currentUiScale - 0.05));
         document.getElementById('resetUiBtn').addEventListener('click', () => updateUiScale(0.85));
 
-        // Initial default scale update
         updateUiScale(0.85);
 
         const FUEL_COLORS = {
@@ -623,14 +692,19 @@
         };
 
         const activeFuelTypes = {
-            Wind: true,
-            Battery: true,
-            Gas: true,
-            Nuclear: true,
-            Solar: true,
-            Biomass: true,
-            Hydro: true,
-            Interconnector: true
+            Wind: true, Battery: true, Gas: true, Nuclear: true,
+            Solar: true, Biomass: true, Hydro: true, Interconnector: true
+        };
+
+        const fuelThresholds = {
+            Wind: 500,
+            Battery: 100,
+            Gas: 1000,
+            Nuclear: 1000,
+            Solar: 200,
+            Biomass: 1000,
+            Hydro: 500,
+            Interconnector: 1000
         };
 
         const fuelPercentages = {
@@ -649,28 +723,46 @@
             { id: 8, name: "Beatrice Offshore Wind", short: "Beatrice", type: "Wind", lat: 58.11, lng: -3.08, maxCap: 588 },
             { id: 9, name: "Triton Knoll Offshore", short: "Triton Knoll", type: "Wind", lat: 53.48, lng: 0.83, maxCap: 857 },
             { id: 10, name: "East Anglia ONE", short: "East Anglia 1", type: "Wind", lat: 52.23, lng: 2.28, maxCap: 714 },
+            { id: 37, name: "Greater Gabbard Offshore Wind", short: "G. Gabbard", type: "Wind", lat: 51.87, lng: 1.93, maxCap: 504 },
+            { id: 38, name: "Burbo Bank Extension", short: "Burbo Bank", type: "Wind", lat: 53.48, lng: -3.20, maxCap: 258 },
+            { id: 39, name: "Dudgeon Offshore Wind Farm", short: "Dudgeon", type: "Wind", lat: 53.25, lng: 1.38, maxCap: 402 },
+            { id: 40, name: "Galloper Offshore Wind Farm", short: "Galloper", type: "Wind", lat: 51.90, lng: 2.05, maxCap: 353 },
+            { id: 41, name: "Sheringham Shoal Wind Farm", short: "Sheringham", type: "Wind", lat: 53.12, lng: 1.15, maxCap: 317 },
+            { id: 42, name: "Rampion Offshore Wind Farm", short: "Rampion", type: "Wind", lat: 50.67, lng: -0.26, maxCap: 400 },
+            { id: 43, name: "Gwynt y Môr Offshore Wind", short: "Gwynt y Môr", type: "Wind", lat: 53.47, lng: -3.56, maxCap: 576 },
+            { id: 44, name: "Lynn and Inner Dowsing", short: "Lynn/Dowsing", type: "Wind", lat: 53.15, lng: 0.45, maxCap: 194 },
+            { id: 45, name: "Humber Gateway Wind Farm", short: "Humber Gate", type: "Wind", lat: 53.63, lng: 0.28, maxCap: 219 },
+            { id: 46, name: "Aberdeen Bay (EOWDC)", short: "Aberdeen Bay", type: "Wind", lat: 57.22, lng: -2.01, maxCap: 97 },
+            { id: 47, name: "Kincardine Floating Wind", short: "Kincardine", type: "Wind", lat: 57.05, lng: -1.85, maxCap: 50 },
+
             { id: 11, name: "Pillswood BESS", short: "Pillswood", type: "Battery", lat: 53.77, lng: -0.36, maxCap: 198 },
             { id: 12, name: "Minety Battery Facility", short: "Minety", type: "Battery", lat: 51.61, lng: -1.98, maxCap: 100 },
             { id: 13, name: "Thurrock BESS Park", short: "Thurrock", type: "Battery", lat: 51.47, lng: 0.38, maxCap: 600 },
             { id: 14, name: "Richborough BESS", short: "Richborough", type: "Battery", lat: 51.31, lng: 1.34, maxCap: 100 },
+
             { id: 15, name: "Pembroke CCGT Power Station", short: "Pembroke", type: "Gas", lat: 51.68, lng: -4.95, maxCap: 2200 },
             { id: 16, name: "Keadby 1 & 2 Power Station", short: "Keadby", type: "Gas", lat: 53.59, lng: -0.74, maxCap: 2200 },
             { id: 17, name: "West Burton B CCGT", short: "W. Burton B", type: "Gas", lat: 53.36, lng: -0.81, maxCap: 1300 },
             { id: 18, name: "Carrington Power Station", short: "Carrington", type: "Gas", lat: 53.43, lng: -2.40, maxCap: 880 },
             { id: 19, name: "Staythorpe CCGT", short: "Staythorpe", type: "Gas", lat: 53.07, lng: -0.85, maxCap: 1650 },
             { id: 20, name: "Marchwood Power Station", short: "Marchwood", type: "Gas", lat: 50.89, lng: -1.43, maxCap: 840 },
+
             { id: 21, name: "Sizewell B Nuclear", short: "Sizewell B", type: "Nuclear", lat: 52.21, lng: 1.62, maxCap: 1200 },
             { id: 22, name: "Torness Nuclear", short: "Torness", type: "Nuclear", lat: 55.97, lng: -2.40, maxCap: 1200 },
             { id: 23, name: "Heysham 1 & 2 Nuclear", short: "Heysham", type: "Nuclear", lat: 54.03, lng: -2.91, maxCap: 2400 },
             { id: 24, name: "Hinkley Point B/C", short: "Hinkley Point", type: "Nuclear", lat: 51.21, lng: -3.13, maxCap: 3200 },
+
             { id: 25, name: "Drax Biomass Power Station", short: "Drax", type: "Biomass", lat: 53.73, lng: -1.00, maxCap: 2600 },
             { id: 26, name: "Lynemouth Biomass", short: "Lynemouth", type: "Biomass", lat: 55.21, lng: -1.52, maxCap: 420 },
+
             { id: 27, name: "Dinorwig Pumped Storage", short: "Dinorwig", type: "Hydro", lat: 53.12, lng: -4.11, maxCap: 1700 },
             { id: 28, name: "Cruachan Hydro Storage", short: "Cruachan", type: "Hydro", lat: 56.40, lng: -5.11, maxCap: 440 },
             { id: 29, name: "Ffestiniog Hydro Station", short: "Ffestiniog", type: "Hydro", lat: 52.98, lng: -3.96, maxCap: 360 },
+
             { id: 30, name: "Cambridgeshire Solar Park", short: "Cambs Solar", type: "Solar", lat: 52.20, lng: 0.12, maxCap: 500 },
             { id: 31, name: "Llanwern Solar Array", short: "Llanwern", type: "Solar", lat: 51.57, lng: -2.91, maxCap: 75 },
             { id: 32, name: "Cleve Hill Solar Park", short: "Cleve Hill", type: "Solar", lat: 51.34, lng: 0.92, maxCap: 350 },
+
             { id: 33, name: "North Sea Link (Norway)", short: "NSL (NO)", type: "Interconnector", lat: 55.15, lng: -1.50, maxCap: 1400 },
             { id: 34, name: "IFA2 Interconnector (France)", short: "IFA2 (FR)", type: "Interconnector", lat: 50.80, lng: -1.18, maxCap: 1000 },
             { id: 35, name: "Viking Link (Denmark)", short: "Viking (DK)", type: "Interconnector", lat: 53.30, lng: 0.20, maxCap: 1400 },
@@ -686,17 +778,21 @@
                 row.className = 'toggle-container';
 
                 const pct = fuelPercentages[type] ? fuelPercentages[type].toFixed(1) : "0.0";
+                const thresh = fuelThresholds[type] !== undefined ? fuelThresholds[type] : 0;
 
                 row.innerHTML = `
-                    <span class="toggle-label">
+                    <div class="toggle-left">
                         <div class="color-dot" style="background: ${FUEL_COLORS[type]}"></div>
-                        ${type}
-                        <span class="pct-badge" id="pct-${type}">${pct}%</span>
-                    </span>
-                    <label class="switch">
-                        <input type="checkbox" class="fuel-toggle-switch" data-fuel="${type}" ${activeFuelTypes[type] ? 'checked' : ''}>
-                        <span class="slider"></span>
-                    </label>
+                        <span class="toggle-label">${type} <span class="pct-badge" id="pct-${type}">${pct}%</span></span>
+                    </div>
+                    <div class="toggle-right">
+                        <input type="number" class="threshold-input ind-threshold" data-fuel="${type}" value="${thresh}" min="0" step="50" title="Min capacity threshold in MW">
+                        <span class="threshold-label">MW</span>
+                        <label class="switch">
+                            <input type="checkbox" class="fuel-toggle-switch" data-fuel="${type}" ${activeFuelTypes[type] ? 'checked' : ''}>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                 `;
 
                 container.appendChild(row);
@@ -709,7 +805,26 @@
                     updateDisplay();
                 });
             });
+
+            document.querySelectorAll('.ind-threshold').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const fuel = e.target.dataset.fuel;
+                    const val = parseInt(e.target.value);
+                    fuelThresholds[fuel] = isNaN(val) ? 0 : Math.max(0, val);
+                    updateDisplay();
+                });
+            });
         }
+
+        document.getElementById('applyGlobalThresholdBtn').addEventListener('click', () => {
+            const val = parseInt(document.getElementById('globalThresholdInput').value);
+            const newThresh = isNaN(val) ? 0 : Math.max(0, val);
+            Object.keys(fuelThresholds).forEach(fuel => {
+                fuelThresholds[fuel] = newThresh;
+            });
+            renderSourceToggles();
+            updateDisplay();
+        });
 
         function updateTogglePercentages() {
             Object.keys(FUEL_COLORS).forEach(type => {
@@ -746,7 +861,7 @@
                 const arr = [];
                 const curtailArr = [];
                 for (let i = 0; i < steps; i++) {
-                    let factor = 0.5;
+                    let factor = 0.6;
                     let cFactor = 0.0;
                     const norm = i / steps;
 
@@ -755,21 +870,21 @@
                             const hour = i / 2;
                             factor = Math.max(0, Math.sin((hour - 6) / 12 * Math.PI));
                         } else {
-                            factor = 0.3 + 0.5 * Math.random();
+                            factor = 0.4 + 0.5 * Math.random();
                         }
                         if (factor > 0.4) cFactor = factor * (0.15 + 0.3 * Math.random());
                     } else if (s.type === 'Wind') {
-                        factor = 0.25 + 0.65 * Math.abs(Math.sin(norm * Math.PI * 6 + s.id));
+                        factor = 0.35 + 0.6 * Math.abs(Math.sin(norm * Math.PI * 6 + s.id));
                         if (factor > 0.5) cFactor = factor * (0.2 + 0.4 * Math.random());
                     } else if (s.type === 'Gas') {
-                        factor = (i % 6 === 0) ? 0.85 : 0.3;
+                        factor = (i % 6 === 0) ? 0.9 : 0.4;
                     } else if (s.type === 'Battery') {
-                        factor = (i % 4 === 0) ? 0.9 : 0.1;
+                        factor = (i % 4 === 0) ? 0.95 : 0.2;
                     } else {
-                        factor = 0.7 + 0.2 * Math.sin(i * 0.1);
+                        factor = 0.75 + 0.2 * Math.sin(i * 0.1);
                     }
 
-                    arr.push(Math.min(1, Math.max(0.05, factor)));
+                    arr.push(Math.min(1, Math.max(0.1, factor)));
                     curtailArr.push(Math.min(factor, Math.max(0, cFactor)));
                 }
                 dataset[s.id] = arr;
@@ -806,7 +921,7 @@
             }
         };
 
-        let activeTimeframe = '24h';
+        let activeTimeframe = 'live';
         const liveDataStore = {};
         const liveCurtailStore = {};
         const stationStateMap = {};
@@ -814,40 +929,62 @@
 
         function populateSimulatedLiveValues() {
             powerStations.forEach(s => {
-                let factor = 0.4;
+                let factor = 0.55;
                 let cFactor = 0.0;
 
                 if (s.type === 'Wind') {
-                    factor = 0.6 + 0.35 * Math.random();
-                    cFactor = factor * (0.2 + 0.3 * Math.random());
+                    factor = 0.65 + 0.3 * Math.random();
+                    cFactor = factor * (0.2 + 0.25 * Math.random());
                 } else if (s.type === 'Solar') {
-                    factor = 0.4 + 0.4 * Math.random();
-                    cFactor = factor * (0.15 + 0.25 * Math.random());
+                    factor = 0.5 + 0.4 * Math.random();
+                    cFactor = factor * (0.15 + 0.2 * Math.random());
                 } else if (s.type === 'Gas') {
-                    factor = 0.45 + 0.3 * Math.random();
+                    factor = 0.5 + 0.35 * Math.random();
                 } else if (s.type === 'Nuclear') {
-                    factor = 0.90;
+                    factor = 0.88;
+                } else if (s.type === 'Biomass') {
+                    factor = 0.75;
                 } else {
-                    factor = 0.5;
+                    factor = 0.6;
                 }
 
                 liveDataStore[s.id] = Math.round(s.maxCap * factor);
-                liveCurtailStore[s.id] = Math.round(s.maxCap * cFactor);
+                liveCurtailStore[s.id] = (s.type === 'Wind' || s.type === 'Solar') ? Math.round(s.maxCap * cFactor) : 0;
             });
         }
         populateSimulatedLiveValues();
 
         const gridConnections = [
-            { name: "Dogger Bank HVDC Link", from: [54.75, 2.50], to: [53.59, -0.74], type: "HVDC" },
-            { name: "Hornsea HVDC Link", from: [53.90, 1.80], to: [53.59, -0.74], type: "HVDC" },
+            { name: "Beauly to Denny 400kV", from: [57.48, -4.42], to: [56.02, -3.85], type: "HVAC" },
+            { name: "Peterhead to Torness", from: [57.51, -1.78], to: [55.97, -2.40], type: "HVAC" },
+            { name: "Eastern Green Link 1", from: [57.51, -1.78], to: [53.59, -0.74], type: "HVDC" },
+            { name: "Eastern Green Link 2", from: [55.97, -2.40], to: [54.80, -1.40], type: "HVDC" },
             { name: "Seagreen Export Cable", from: [56.58, -1.60], to: [55.97, -2.40], type: "HVAC" },
             { name: "Moray Firth Line", from: [58.18, -2.70], to: [56.40, -5.11], type: "HVAC" },
-            { name: "Scotland-England 400kV Line", from: [55.97, -2.40], to: [54.03, -2.91], type: "HVAC" },
+            { name: "Dogger Bank HVDC Link", from: [54.75, 2.50], to: [53.59, -0.74], type: "HVDC" },
+            { name: "Hornsea HVDC Link", from: [53.90, 1.80], to: [53.59, -0.74], type: "HVDC" },
+            { name: "Dogger Bank South", from: [54.50, 2.20], to: [52.75, 0.23], type: "HVDC" },
+            { name: "Western Link (HVDC)", from: [55.72, -4.89], to: [53.24, -3.04], type: "HVDC" },
+            { name: "Scotland-England Eastern 400kV", from: [55.97, -2.40], to: [54.97, -1.61], type: "HVAC" },
+            { name: "Scotland-England Western 400kV", from: [55.10, -3.20], to: [54.03, -2.91], type: "HVAC" },
             { name: "Pennine Grid Trunk", from: [54.03, -2.91], to: [53.43, -2.40], type: "HVAC" },
+            { name: "North-West to Midlands", from: [53.43, -2.40], to: [52.48, -1.89], type: "HVAC" },
             { name: "Midlands Main Grid", from: [53.36, -0.81], to: [51.61, -1.98], type: "HVAC" },
+            { name: "Midlands to London Corridor", from: [52.48, -1.89], to: [51.50, -0.12], type: "HVAC" },
+            { name: "Sizewell to London 400kV", from: [52.21, 1.62], to: [51.70, 0.40], type: "HVAC" },
+            { name: "Hinkley Point to Melksham", from: [51.21, -3.13], to: [51.37, -2.15], type: "HVAC" },
+            { name: "Melksham to London (Bramley)", from: [51.37, -2.15], to: [51.30, -1.05], type: "HVAC" },
             { name: "Wales 400kV Backbone", from: [53.12, -4.11], to: [51.68, -4.95], type: "HVAC" },
-            { name: "North Sea Link (Norway HVDC)", from: [55.15, -1.50], to: [56.50, 3.50], type: "HVDC" },
-            { name: "IFA2 (France HVDC Cable)", from: [50.80, -1.18], to: [49.80, -0.50], type: "HVDC" }
+            { name: "South Wales to Melksham", from: [51.68, -4.95], to: [51.37, -2.15], type: "HVAC" },
+            { name: "South Coast Trunk", from: [50.89, -1.43], to: [50.80, -1.18], type: "HVAC" },
+            { name: "North Sea Link (Norway)", from: [55.15, -1.50], to: [58.30, 6.00], type: "HVDC" },
+            { name: "Viking Link (Denmark)", from: [53.30, 0.20], to: [55.30, 8.30], type: "HVDC" },
+            { name: "BritNed (Netherlands)", from: [51.40, 1.30], to: [51.95, 4.10], type: "HVDC" },
+            { name: "Nemo Link (Belgium)", from: [51.31, 1.34], to: [51.20, 2.90], type: "HVDC" },
+            { name: "IFA (France)", from: [51.10, 1.20], to: [50.90, 1.80], type: "HVDC" },
+            { name: "IFA2 (France Cable)", from: [50.80, -1.18], to: [49.80, -0.50], type: "HVDC" },
+            { name: "Moyle (N. Ireland)", from: [54.85, -5.02], to: [55.10, -5.80], type: "HVDC" },
+            { name: "Greenlink (Ireland)", from: [51.70, -5.00], to: [52.20, -6.50], type: "HVDC" }
         ];
 
         const map = L.map('map', { 
@@ -871,11 +1008,18 @@
         const gridPolylines = [];
         gridConnections.forEach(conn => {
             const line = L.polyline([conn.from, conn.to], {
-                color: conn.type === 'HVDC' ? '#a855f7' : '#38bdf8',
-                weight: conn.type === 'HVDC' ? 2 : 3,
+                color: conn.type === 'HVDC' ? '#0284c7' : '#059669',
+                weight: conn.type === 'HVDC' ? 2.5 : 2.8,
                 dashArray: conn.type === 'HVDC' ? '6, 6' : null,
-                opacity: 0.6
+                opacity: 0.85
             }).addTo(map);
+
+            line.bindTooltip(conn.name, {
+                permanent: true,
+                direction: 'center',
+                className: 'line-label'
+            });
+
             gridPolylines.push(line);
         });
 
@@ -929,9 +1073,8 @@
                 outerCircle.bindPopup(`
                     <div style="padding: 4px;">
                         <strong style="font-size: 1rem; color: ${FUEL_COLORS[station.type]};">${station.name}</strong><br>
-                        <span style="color: #94a3b8; font-size: 0.85rem;">Type: ${station.type}</span><br><br>
+                        <span style="color: #94a3b8; font-size: 0.85rem;">Type: ${station.type} | Nameplate: ${station.maxCap} MW</span><br><br>
                         <strong>Active Grid Output:</strong> ${state.mw.toLocaleString()} MW${curtailmentText}
-                        <strong>Nameplate Capacity:</strong> ${station.maxCap.toLocaleString()} MW
                     </div>
                 `).openPopup();
             });
@@ -963,15 +1106,15 @@
                         else if (f === 'battery') mappedType = 'Battery';
 
                         if (mappedType) {
-                            fuelFactors[mappedType] = Math.min(1, Math.max(0.1, item.perc / 35.0));
+                            fuelFactors[mappedType] = Math.max(0.05, (item.perc / 30.0) * 1.15);
                         }
                     });
 
                     powerStations.forEach(s => {
-                        const factor = fuelFactors[s.type] || (0.2 + 0.3 * Math.random());
+                        const factor = fuelFactors[s.type] || 0.3;
                         const currentMW = Math.round(s.maxCap * factor);
                         liveDataStore[s.id] = currentMW;
-                        liveCurtailStore[s.id] = (s.type === 'Wind' || s.type === 'Solar') ? Math.round(currentMW * (0.15 + 0.2 * Math.random())) : 0;
+                        liveCurtailStore[s.id] = (s.type === 'Wind' || s.type === 'Solar') ? Math.round(currentMW * 0.1) : 0;
                     });
                 }
             } catch (err) {
@@ -981,11 +1124,11 @@
             if (activeTimeframe === 'live') renderLiveMode();
         }
 
-        function updateStationVisuals(station, currentMW, curtailedMW) {
+        function updateStationVisuals(station, currentMW, curtailedMW, isVisible) {
             const outer = stationOuterMarkers[station.id];
             const inner = stationInnerMarkers[station.id];
 
-            if (!activeFuelTypes[station.type]) {
+            if (!isVisible) {
                 outer.setRadius(0);
                 outer.setStyle({ opacity: 0, fillOpacity: 0 });
                 inner.setRadius(0);
@@ -1019,7 +1162,9 @@
         function calculateGridTotals(getCurrentMW, getCurtailedMW) {
             let totalPower = 0;
             let totalCurtailed = 0;
-            let activeCount = 0;
+            let selectedPower = 0;
+            let selectedCurtailed = 0;
+            
             let windGenMW = 0;
             let windCurtailMW = 0;
 
@@ -1034,19 +1179,28 @@
 
                 stationStateMap[station.id] = { mw: currentMW, curtailedMW };
 
-                if (station.type === 'Wind') {
-                    windGenMW += currentMW;
-                    windCurtailMW += curtailedMW;
-                }
+                const passesType = activeFuelTypes[station.type];
+                const passesThreshold = station.maxCap >= (fuelThresholds[station.type] || 0);
+                const isVisible = passesType && passesThreshold;
 
-                if (activeFuelTypes[station.type]) {
+                totalPower += currentMW;
+                totalCurtailed += curtailedMW;
+
+                if (passesType) {
+                    if (station.type === 'Wind') {
+                        windGenMW += currentMW;
+                        windCurtailMW += curtailedMW;
+                    }
+
                     fuelTotals[station.type] += currentMW;
-                    totalPower += currentMW;
-                    totalCurtailed += curtailedMW;
-                    if (currentMW > 5) activeCount++;
+                    
+                    if (passesThreshold) {
+                        selectedPower += currentMW;
+                        selectedCurtailed += curtailedMW;
+                    }
                 }
 
-                updateStationVisuals(station, currentMW, curtailedMW);
+                updateStationVisuals(station, currentMW, curtailedMW, isVisible);
             });
 
             Object.keys(FUEL_COLORS).forEach(type => {
@@ -1059,8 +1213,8 @@
 
             updateTogglePercentages();
 
-            document.getElementById('totalGen').innerText = totalPower.toLocaleString() + " MW";
-            document.getElementById('totalCurtailed').innerText = totalCurtailed.toLocaleString() + " MW";
+            document.getElementById('totalGen').innerHTML = `${totalPower.toLocaleString()} MW <span class="onscreen">(${selectedPower.toLocaleString()} MW)</span>`;
+            document.getElementById('totalCurtailed').innerHTML = `${totalCurtailed.toLocaleString()} MW <span class="onscreen">(${selectedCurtailed.toLocaleString()} MW)</span>`;
             
             const windCurtailRate = (windGenMW + windCurtailMW > 0) 
                 ? ((windCurtailMW / (windGenMW + windCurtailMW)) * 100).toFixed(1) 
@@ -1076,7 +1230,7 @@
             const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
             calculateGridTotals(
-                s => liveDataStore[s.id] || Math.round(s.maxCap * 0.4),
+                s => liveDataStore[s.id] || Math.round(s.maxCap * 0.55),
                 s => liveCurtailStore[s.id] || 0
             );
 
@@ -1141,23 +1295,22 @@
             }
         }
 
-        // Toggles
-        const labelToggle = document.getElementById('labelToggle');
-        labelToggle.addEventListener('change', (e) => {
+        document.getElementById('labelToggle').addEventListener('change', (e) => {
             if (e.target.checked) document.body.classList.remove('hide-labels');
             else document.body.classList.add('hide-labels');
         });
 
-        const gridLinesToggle = document.getElementById('gridLinesToggle');
-        gridLinesToggle.addEventListener('change', (e) => {
+        document.getElementById('gridLinesToggle').addEventListener('change', (e) => {
             const showLines = e.target.checked;
             gridPolylines.forEach(line => {
-                if (showLines) {
-                    map.addLayer(line);
-                } else {
-                    map.removeLayer(line);
-                }
+                if (showLines) map.addLayer(line);
+                else map.removeLayer(line);
             });
+        });
+
+        document.getElementById('lineLabelsToggle').addEventListener('change', (e) => {
+            if (e.target.checked) document.body.classList.remove('hide-line-labels');
+            else document.body.classList.add('hide-line-labels');
         });
 
         const playBtn = document.getElementById('playBtn');
@@ -1212,9 +1365,8 @@
             });
         });
 
-        // Initialize UI & Render
         renderSourceToggles();
-        updateDisplay();
+        switchTimeframe('live');
     </script>
 </body>
 </html>
