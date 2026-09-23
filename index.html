@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>UK & North Sea Grid Generation, Transmission & Curtailment Network (v3)</title>
+    <title>UK & North Sea Grid Generation, Transmission & Curtailment Network (v4)</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -540,7 +540,7 @@
     <div id="sidebar">
         <div class="header">
             <div class="header-title-box">
-                <h1>UK Grid Tracker v3</h1>
+                <h1>UK Grid Tracker v4</h1>
                 <p>Generation & Curtailment</p>
             </div>
             <div class="ui-scale-controls" title="Adjust sidebar size to fit your screen">
@@ -761,7 +761,7 @@
             { id: 25, name: "Drax Biomass Power Station", short: "Drax", type: "Biomass", lat: 53.73, lng: -1.00, maxCap: 2600 },
             { id: 26, name: "Lynemouth Biomass", short: "Lynemouth", type: "Biomass", lat: 55.21, lng: -1.52, maxCap: 420 },
 
-            { id: 27, name: "Dinorwig Pumped Storage", short: "Dinorwig", type: "Hydro", lat: 53.12, lng: -4.11, maxCap: 1700 },
+            { id: 27, name: "Dinorwig Pumped Storage", short: "Hydro", lat: 53.12, lng: -4.11, maxCap: 1700 },
             { id: 28, name: "Cruachan Hydro Storage", short: "Cruachan", type: "Hydro", lat: 56.40, lng: -5.11, maxCap: 440 },
             { id: 29, name: "Ffestiniog Hydro Station", short: "Ffestiniog", type: "Hydro", lat: 52.98, lng: -3.96, maxCap: 360 },
 
@@ -937,30 +937,29 @@
 
         function populateSimulatedLiveValues() {
             powerStations.forEach(s => {
-                let factor = 0.55;
+                let factor = 0.45;
                 let cFactor = 0.0;
 
                 if (s.type === 'Wind') {
-                    factor = 0.65 + 0.3 * Math.random();
-                    cFactor = factor * (0.2 + 0.25 * Math.random());
+                    factor = 0.3 + 0.5 * Math.random();
+                    cFactor = factor * (0.02 + 0.13 * Math.random());
                 } else if (s.type === 'Solar') {
-                    factor = 0.5 + 0.4 * Math.random();
-                    cFactor = factor * (0.15 + 0.2 * Math.random());
+                    factor = 0.2 + 0.6 * Math.random();
+                    cFactor = factor * (0.01 + 0.1 * Math.random());
                 } else if (s.type === 'Gas') {
-                    factor = 0.5 + 0.35 * Math.random();
+                    factor = 0.4 + 0.3 * Math.random();
                 } else if (s.type === 'Nuclear') {
-                    factor = 0.88;
+                    factor = 0.85;
                 } else if (s.type === 'Biomass') {
-                    factor = 0.75;
+                    factor = 0.7;
                 } else {
-                    factor = 0.6;
+                    factor = 0.5;
                 }
 
-                liveDataStore[s.id] = Math.round(s.maxCap * factor);
-                liveCurtailStore[s.id] = (s.type === 'Wind' || s.type === 'Solar') ? Math.round(s.maxCap * cFactor) : 0;
+                liveDataStore[s.id] = Math.min(s.maxCap, Math.round(s.maxCap * factor));
+                liveCurtailStore[s.id] = (s.type === 'Wind' || s.type === 'Solar') ? Math.min(liveDataStore[s.id], Math.round(s.maxCap * cFactor)) : 0;
             });
         }
-        populateSimulatedLiveValues();
 
         const gridConnections = [
             { name: "Beauly to Denny 400kV", from: [57.48, -4.42], to: [56.02, -3.85], type: "HVAC" },
@@ -1114,15 +1113,17 @@
                         else if (f === 'battery') mappedType = 'Battery';
 
                         if (mappedType) {
-                            fuelFactors[mappedType] = Math.max(0.05, (item.perc / 30.0) * 1.15);
+                            fuelFactors[mappedType] = Math.min(0.95, Math.max(0.05, item.perc / 45.0));
                         }
                     });
 
                     powerStations.forEach(s => {
-                        const factor = fuelFactors[s.type] || 0.3;
-                        const currentMW = Math.round(s.maxCap * factor);
+                        const factor = fuelFactors[s.type] || 0.35;
+                        const currentMW = Math.min(s.maxCap, Math.round(s.maxCap * factor));
                         liveDataStore[s.id] = currentMW;
-                        liveCurtailStore[s.id] = (s.type === 'Wind' || s.type === 'Solar') ? Math.round(currentMW * 0.1) : 0;
+                        
+                        const curtailFactor = (s.type === 'Wind' || s.type === 'Solar') ? (0.03 + Math.random() * 0.12) : 0;
+                        liveCurtailStore[s.id] = Math.round(currentMW * curtailFactor);
                     });
                 }
             } catch (err) {
